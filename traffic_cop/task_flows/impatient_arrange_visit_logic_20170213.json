@@ -1,0 +1,209 @@
+{
+	"init" : [{
+		"$state" : "wait"
+	}],
+	"states" : {
+		"wait": {
+			"init": [
+				{
+					"state_deadline": {
+						"operator": "-",
+						"var": "$deadline",
+						"difference": 905
+					},
+					"exchange_bot_type" : null,
+					"recipient": null
+				}
+			],
+			"triggers": {
+				"deadline.exceeded": [{
+					"$state": "schedule_visit"
+				}]
+			}
+		},
+		"schedule_visit": {
+			"init": [
+				{
+					"requested_caregiver_id": {
+						"operator" : "next",
+						"var": "$requested_caregiver_id",
+						"list": "$caregiver_id_list"
+					},
+					"state_deadline": {
+						"operator": "+",
+						"var": "$now",
+						"difference": 55
+					},
+					"exchange_bot_type" : "initial_schedule_request"
+				},
+				{
+					"recipient": "$requested_caregiver_id"
+				},
+				{
+					"next_recipient": {
+						"operator" : "next",
+						"var": "$recipient",
+						"list": "$caregiver_id_list"
+					}
+				}
+			],
+			"triggers": {
+				"exchange.accept": [
+					{"confirmed_caregiver_id": "$requested_caregiver_id"},
+					{"$state": "wait_until_reminder"}
+				],
+				"exchange.reject": [{
+					"$state": "schedule_visit"
+				}],
+				"deadline.exceeded": [{
+					"$state": "schedule_visit_second_try"
+				}]
+			}
+		},
+		"schedule_visit_second_try": {
+			"init": [
+				{
+					"recipient": "$requested_caregiver_id",
+					"state_deadline": {
+						"operator": "+",
+						"var": "$now",
+						"difference": 55
+					},
+					"exchange_bot_type" : "second_chance"
+				},
+				{
+					"next_recipient": {
+						"operator" : "next",
+						"var": "$recipient",
+						"list": "$caregiver_id_list"
+					}
+				}
+			],
+			"triggers": {
+				"exchange.accept": [
+					{"confirmed_caregiver_id": "$requested_caregiver_id"},
+					{"$state": "wait_until_reminder"}
+				],
+				"exchange.reject": [{
+					"$state": "schedule_visit"
+				}],
+				"deadline.exceeded": [{
+					"$state": "abandon_scheduling_visit"
+				}]
+			}
+		},
+		"abandon_scheduling_visit": {
+			"init" : [
+				{
+					"recipient": "$requested_caregiver_id",
+					"state_deadline": {
+						"operator": "+",
+						"var": "$now",
+						"difference": 55
+					},
+					"exchange_bot_type" : "moved_on_to_someone_else"
+				},
+				{
+					"next_recipient": {
+						"operator" : "next",
+						"var": "$recipient",
+						"list": "$caregiver_id_list"
+					}
+				}
+			],
+			"triggers": {
+				"deadline.exceeded": [{
+					"$state": "schedule_visit"
+				}]
+			}
+		},
+		"wait_until_reminder": {
+			"init": [
+				{
+					"state_deadline": {
+						"operator": "-",
+						"var": "$deadline",
+						"difference": 55
+					},
+					"exchange_bot_type" : null,
+					"recipient" : null
+				}
+			],
+			"triggers": {
+				"deadline.exceeded": [{
+					"$state": "remind_about_visit"
+				}]
+			}
+
+		},
+		"remind_about_visit": {
+			"init": [
+				{
+					"recipient": "$confirmed_caregiver_id",
+					"state_deadline": {
+						"operator": "-",
+						"var": "$deadline",
+						"difference": 55
+					},
+					"exchange_bot_type" : "reminder"
+				},
+				{
+					"next_recipient": {
+						"operator" : "next",
+						"var": "$recipient",
+						"list": "$caregiver_id_list"
+					}
+				}
+			],
+			"triggers": {
+				"deadline.exceeded": [{
+					"$state": "wait_until_after_visit"
+				}]
+			}
+		},
+		"wait_until_after_visit": {
+			"init": [
+				{
+					"state_deadline": {
+						"operator": "+",
+						"var": "$deadline",
+						"difference": 55
+					},
+					"exchange_bot_type" : null,
+					"recipient" : null
+				}
+			],
+			"triggers": {
+				"deadline.exceeded": [{
+					"$state": "follow_up_after_visit"
+				}]
+			}
+
+		},
+		"follow_up_after_visit": {
+			"init": [
+				{
+					"recipient": "$confirmed_caregiver_id",
+					"state_deadline": {
+						"operator": "+",
+						"var": "$deadline",
+						"difference": 55
+					},
+					"exchange_bot_type" : "ask_for_updates"
+				},
+				{
+					"next_recipient": {
+						"operator" : "next",
+						"var": "$recipient",
+						"list": "$caregiver_id_list"
+					}
+				}
+			],
+			"triggers": {
+				"init": [{
+					"$state": "$TASK_COMPLETE"
+				}]
+			}
+		}
+	}
+}

@@ -1,0 +1,107 @@
+{
+	"init" : [{
+		"$state" : "schedule_visit"
+	}],
+	"states" : {
+		"schedule_visit": {
+			"init": [
+				{
+					"requested_caregiver_id": {
+						"operator" : "next",
+						"var": "$requested_caregiver_id",
+						"list": "$caregiver_id_list"
+					},
+					"state_deadline": {
+						"operator": "+",
+						"var": "$now",
+						"difference": 3600
+					}
+				},
+				{
+					"recipient": "$requested_caregiver_id"
+				}
+			],
+			"triggers": {
+				"exchange.accept": [
+					{"confirmed_caregiver_id": "$requested_caregiver_id"},
+					{"$state": "remind_about_visit"}
+				],
+				"exchange.reject": [{
+					"$state": "schedule_visit"
+				}],
+				"deadline.exceeded": [{
+					"$state": "schedule_visit_second_try"
+				}]
+			}
+		},
+		"schedule_visit_second_try": {
+			"init": [{
+				"recipient": "$requested_caregiver_id",
+				"state_deadline": {
+					"operator": "+",
+					"var": "$now",
+					"difference": 3600
+				}
+			}],
+			"triggers": {
+				"exchange.accept": [
+					{"confirmed_caregiver_id": "$requested_caregiver_id"},
+					{"$state": "schedule_visit"}
+				],
+				"exchange.reject": [{
+					"$state": "schedule_visit"
+				}],
+				"deadline.exceeded": [{
+					"$state": "abandon_scheduling_visit"
+				}]
+			}
+		},
+		"abandon_scheduling_visit": {
+			"init" : [
+				{
+					"recipient": "$requested_caregiver_id",
+					"state_deadline": {
+						"operator": "+",
+						"var": "$now",
+						"difference": 60
+					}
+				}
+			],
+			"triggers": {
+				"deadline.exceeded": [{
+					"$state": "schedule_visit"
+				}]
+			}
+		},
+		"remind_about_visit": {
+			"init": [{
+				"recipient": "$confirmed_caregiver_id",
+				"state_deadline": {
+					"operator": "-",
+					"var": "$deadline",
+					"difference": 7200
+				}
+			}],
+			"triggers": {
+				"deadline.exceeded": [{
+					"$state": "follow_up_after_visit"
+				}]
+			}
+		},
+		"follow_up_after_visit": {
+			"init": [{
+				"recipient": "$confirmed_caregiver_id",
+				"state_deadline": {
+					"operator": "+",
+					"var": "$deadline",
+					"difference": 3600
+				}
+			}],
+			"triggers": {
+				"init": [{
+					"$state": "$TASK_COMPLETE"
+				}]
+			}
+		}
+	}
+}
